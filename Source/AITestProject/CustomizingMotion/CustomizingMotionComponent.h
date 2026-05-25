@@ -29,6 +29,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "CustomizingMotion")
 	void ClearAllSlots();
 
+	/** 두 슬롯을 교체 (OnMotionSlotsChanged 1회만 발생) */
+	UFUNCTION(BlueprintCallable, Category = "CustomizingMotion")
+	void SwapSlots(int32 IndexA, int32 IndexB);
+
 	UFUNCTION(BlueprintCallable, Category = "CustomizingMotion")
 	const TArray<FMotionSlotData>& GetSlots() const { return ActiveSlots; }
 

@@ -17,29 +17,6 @@
 #include "Animation/AnimSequenceBase.h"
 
 // ============================================================
-// 색상 상수
-// ============================================================
-namespace MC
-{
-	const FLinearColor BgWindow (0.05f, 0.05f, 0.07f, 0.96f);
-	const FLinearColor BgTitle  (0.09f, 0.09f, 0.12f, 1.00f);
-	const FLinearColor BgPanel  (0.07f, 0.07f, 0.09f, 0.95f);
-	const FLinearColor BgRow    (0.09f, 0.09f, 0.11f, 1.00f);
-	const FLinearColor BgRowSel (0.17f, 0.14f, 0.22f, 1.00f);
-	const FLinearColor BgNum    (0.11f, 0.11f, 0.15f, 1.00f);
-	const FLinearColor BgNumSel (0.24f, 0.18f, 0.34f, 1.00f);
-	const FLinearColor BgBtn    (0.12f, 0.12f, 0.16f, 1.00f);
-	const FLinearColor BgFooter (0.07f, 0.07f, 0.09f, 1.00f);
-
-	const FLinearColor TxtMain  (0.85f, 0.85f, 0.88f, 1.00f);
-	const FLinearColor TxtDim   (0.45f, 0.45f, 0.48f, 1.00f);
-	const FLinearColor TxtTitle (0.92f, 0.92f, 0.95f, 1.00f);
-	const FLinearColor TxtEmpty (0.38f, 0.38f, 0.41f, 1.00f);
-	const FLinearColor TxtSelHl (0.88f, 0.82f, 1.00f, 1.00f);
-	const FLinearColor TxtGreen (0.20f, 0.85f, 0.35f, 1.00f);
-}
-
-// ============================================================
 // 초기화
 // ============================================================
 bool UCustomizingMotionWidget::Initialize()
@@ -229,7 +206,7 @@ void UCustomizingMotionWidget::RefreshPresetList()
 		const bool bHas = Presets[i].Slots.Num() > 0;
 
 		UButton* PBtn = NewObject<UButton>(WidgetTree);
-		PBtn->SetBackgroundColor(MC::BgBtn);
+		PBtn->SetBackgroundColor(PresetBtnBgColor);
 
 		FButtonStyle PS = PBtn->GetStyle();
 		PS.NormalPadding  = FMargin(6.f, 4.f);
@@ -238,7 +215,7 @@ void UCustomizingMotionWidget::RefreshPresetList()
 
 		UTextBlock* PTxt = NewObject<UTextBlock>(WidgetTree);
 		PTxt->SetText(FText::FromString(Name));
-		PTxt->SetColorAndOpacity(FSlateColor(bHas ? MC::TxtMain : MC::TxtDim));
+		PTxt->SetColorAndOpacity(FSlateColor(bHas ? PresetTxtColor : PresetTxtEmptyColor));
 
 		FSlateFontInfo PF = PTxt->GetFont();
 		PF.Size = 10;
@@ -254,7 +231,7 @@ void UCustomizingMotionWidget::RefreshPresetList()
 
 		// 1px 행 구분선
 		UBorder* Gap = NewObject<UBorder>(WidgetTree);
-		Gap->SetBrushColor(FLinearColor(0.05f, 0.05f, 0.06f, 1.f));
+		Gap->SetBrushColor(PresetDividerColor);
 		Gap->SetPadding(FMargin(0.f, 1.f));
 		PresetListScroll->AddChild(Gap);
 	}
@@ -301,6 +278,9 @@ void UCustomizingMotionWidget::RefreshSlots()
 		FScriptDelegate SD;
 		SD.BindUFunction(this, SlotFuncNames[i]);
 		SlotW->OnSlotClicked.Add(SD);
+
+		// OnMoveRequested → OnSlotMoveRequested
+		SlotW->OnMoveRequested.AddDynamic(this, &UCustomizingMotionWidget::OnSlotMoveRequested);
 
 		SlotWidgets.Add(SlotW);
 		SlotRowsBox->AddChildToVerticalBox(SlotW);
@@ -468,6 +448,37 @@ void UCustomizingMotionWidget::OnSavePresetBtnClicked()
 }
 
 // ============================================================
+// MotionSlotWidget 델리게이트 수신
+// ============================================================
+void UCustomizingMotionWidget::OnSlotMoveRequested(int32 SlotIdx, int32 Direction)
+{
+	if (MotionComp == nullptr)
+	{
+		return;
+	}
+
+	const int32 TargetIdx = SlotIdx + Direction;
+	const int32 MaxSlots  = MotionComp->GetMaxSlotCount();
+
+	if (TargetIdx < 0 || TargetIdx >= MaxSlots)
+	{
+		return;
+	}
+
+	MotionComp->SwapSlots(SlotIdx, TargetIdx);
+
+	// 선택 상태를 이동된 슬롯으로 유지
+	if (SelectedSlotIndex == SlotIdx)
+	{
+		SelectedSlotIndex = TargetIdx;
+	}
+	else if (SelectedSlotIndex == TargetIdx)
+	{
+		SelectedSlotIndex = SlotIdx;
+	}
+}
+
+// ============================================================
 // MotionListWidget 델리게이트 수신
 // ============================================================
 void UCustomizingMotionWidget::OnListCloseRequested()
@@ -495,7 +506,7 @@ void UCustomizingMotionWidget::OnPlayStateChanged(bool bPlaying)
 	if (CircleStateTxt != nullptr)
 	{
 		CircleStateTxt->SetColorAndOpacity(
-			FSlateColor(bPlaying ? MC::TxtGreen : MC::TxtDim));
+			FSlateColor(bPlaying ? PlayingIndicatorColor : StoppedIndicatorColor));
 	}
 }
 

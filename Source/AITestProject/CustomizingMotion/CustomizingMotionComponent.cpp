@@ -42,7 +42,31 @@ void UCustomizingMotionComponent::ClearAllSlots()
 {
 	const int32 MaxSlots = GetMaxSlotCount();
 	ActiveSlots.SetNum(MaxSlots);
-	for (int32 i = 0; i < MaxSlots; ++i) { ActiveSlots[i] = FMotionSlotData(); ActiveSlots[i].Index = i; }
+	for (int32 i = 0; i < MaxSlots; ++i)
+	{
+		ActiveSlots[i] = FMotionSlotData();
+		ActiveSlots[i].Index = i;
+	}
+	OnMotionSlotsChanged.Broadcast(ActiveSlots);
+}
+
+void UCustomizingMotionComponent::SwapSlots(int32 IndexA, int32 IndexB)
+{
+	if (ActiveSlots.IsValidIndex(IndexA) == false)
+	{
+		return;
+	}
+	if (ActiveSlots.IsValidIndex(IndexB) == false)
+	{
+		return;
+	}
+
+	FMotionSlotData Temp    = ActiveSlots[IndexA];
+	ActiveSlots[IndexA]     = ActiveSlots[IndexB];
+	ActiveSlots[IndexB]     = Temp;
+	ActiveSlots[IndexA].Index = IndexA;
+	ActiveSlots[IndexB].Index = IndexB;
+
 	OnMotionSlotsChanged.Broadcast(ActiveSlots);
 }
 

@@ -106,6 +106,25 @@ protected:
 	UPROPERTY(meta = (BindWidget))
 	UTextBlock* CircleStateTxt = nullptr;
 
+	// ── 스타일 UPROPERTY (WBP 에디터에서 수정 가능) ───────────
+	UPROPERTY(EditAnywhere, Category = "Style")
+	FLinearColor PresetBtnBgColor       = FLinearColor(0.12f, 0.12f, 0.16f, 1.00f);
+
+	UPROPERTY(EditAnywhere, Category = "Style")
+	FLinearColor PresetTxtColor         = FLinearColor(0.85f, 0.85f, 0.88f, 1.00f);
+
+	UPROPERTY(EditAnywhere, Category = "Style")
+	FLinearColor PresetTxtEmptyColor    = FLinearColor(0.45f, 0.45f, 0.48f, 1.00f);
+
+	UPROPERTY(EditAnywhere, Category = "Style")
+	FLinearColor PresetDividerColor     = FLinearColor(0.05f, 0.05f, 0.06f, 1.00f);
+
+	UPROPERTY(EditAnywhere, Category = "Style")
+	FLinearColor PlayingIndicatorColor  = FLinearColor(0.20f, 0.85f, 0.35f, 1.00f);
+
+	UPROPERTY(EditAnywhere, Category = "Style")
+	FLinearColor StoppedIndicatorColor  = FLinearColor(0.45f, 0.45f, 0.48f, 1.00f);
+
 	// ── 내부 상태 ─────────────────────────────────────────────
 private:
 	UPROPERTY()
@@ -149,6 +168,9 @@ private:
 	UFUNCTION() void OnCirclePlayClicked();
 	UFUNCTION() void OnApplyBtnClicked();
 	UFUNCTION() void OnCloseBtnClicked();
+
+	// ── MotionSlotWidget 델리게이트 수신 ─────────────────────
+	UFUNCTION() void OnSlotMoveRequested(int32 SlotIdx, int32 Direction);
 
 	// ── MotionListWidget 델리게이트 수신 ─────────────────────
 	UFUNCTION() void OnListCloseRequested();
