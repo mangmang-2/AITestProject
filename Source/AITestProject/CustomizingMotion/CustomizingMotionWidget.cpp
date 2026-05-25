@@ -85,6 +85,16 @@ void UCustomizingMotionWidget::NativeConstruct()
 	{
 		CircleBtn->OnClicked.AddDynamic(this, &UCustomizingMotionWidget::OnCirclePlayClicked);
 	}
+
+	if (BtnApply != nullptr)
+	{
+		BtnApply->OnClicked.AddDynamic(this, &UCustomizingMotionWidget::OnApplyBtnClicked);
+	}
+
+	if (CloseBtn != nullptr)
+	{
+		CloseBtn->OnClicked.AddDynamic(this, &UCustomizingMotionWidget::OnCloseBtnClicked);
+	}
 }
 
 void UCustomizingMotionWidget::NativeDestruct()
@@ -108,6 +118,14 @@ void UCustomizingMotionWidget::NativeDestruct()
 	if (CircleBtn != nullptr)
 	{
 		CircleBtn->OnClicked.RemoveDynamic(this, &UCustomizingMotionWidget::OnCirclePlayClicked);
+	}
+	if (BtnApply != nullptr)
+	{
+		BtnApply->OnClicked.RemoveDynamic(this, &UCustomizingMotionWidget::OnApplyBtnClicked);
+	}
+	if (CloseBtn != nullptr)
+	{
+		CloseBtn->OnClicked.RemoveDynamic(this, &UCustomizingMotionWidget::OnCloseBtnClicked);
 	}
 
 	// MotionListWidget 델리게이트 해제
@@ -425,6 +443,18 @@ void UCustomizingMotionWidget::OnCirclePlayClicked()
 	{
 		MotionComp->StartMotionLoop();
 	}
+}
+
+void UCustomizingMotionWidget::OnApplyBtnClicked()
+{
+	OnApplyRequested.Broadcast();
+	SetVisibility(ESlateVisibility::Collapsed);
+}
+
+void UCustomizingMotionWidget::OnCloseBtnClicked()
+{
+	OnCloseRequested.Broadcast();
+	SetVisibility(ESlateVisibility::Collapsed);
 }
 
 void UCustomizingMotionWidget::OnSavePresetBtnClicked()

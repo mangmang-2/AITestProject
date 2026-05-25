@@ -17,6 +17,10 @@ class UScrollBox;
 class UCanvasPanel;
 class USizeBox;
 
+// ── 메인창 → 외부 델리게이트 ────────────────────────────────
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnCustomizingApplyRequested);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnCustomizingCloseRequested);
+
 // ──────────────────────────────────────────────────────────────
 // 메인 커스터마이징 모션 위젯
 // ──────────────────────────────────────────────────────────────
@@ -74,6 +78,17 @@ protected:
 	UPROPERTY(meta = (BindWidget))
 	UVerticalBox* SlotRowsBox = nullptr;
 
+	// ── 델리게이트 ────────────────────────────────────────────
+	UPROPERTY(BlueprintAssignable, Category = "CustomizingMotionUI")
+	FOnCustomizingApplyRequested OnApplyRequested;
+
+	UPROPERTY(BlueprintAssignable, Category = "CustomizingMotionUI")
+	FOnCustomizingCloseRequested OnCloseRequested;
+
+	// ── WBP BindWidget — 타이틀 ───────────────────────────────
+	UPROPERTY(meta = (BindWidgetOptional))
+	UButton* CloseBtn = nullptr;
+
 	// ── WBP BindWidget — 기능 버튼 ────────────────────────────
 	UPROPERTY(meta = (BindWidget))
 	UButton* BtnSavePreset = nullptr;
@@ -83,6 +98,9 @@ protected:
 
 	UPROPERTY(meta = (BindWidget))
 	UButton* CircleBtn = nullptr;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UButton* BtnApply = nullptr;
 
 	// ── WBP BindWidget — 재생 상태 텍스트 ─────────────────────
 	UPROPERTY(meta = (BindWidget))
@@ -129,6 +147,8 @@ private:
 	UFUNCTION() void OnSavePresetBtnClicked();
 	UFUNCTION() void OnResetAllClicked();
 	UFUNCTION() void OnCirclePlayClicked();
+	UFUNCTION() void OnApplyBtnClicked();
+	UFUNCTION() void OnCloseBtnClicked();
 
 	// ── MotionListWidget 델리게이트 수신 ─────────────────────
 	UFUNCTION() void OnListCloseRequested();
