@@ -1,15 +1,34 @@
-# Unreal Engine
+# ── Unreal Engine 생성 파일 ──────────────────────────────────
 Binaries/
 DerivedDataCache/
 Intermediate/
 Saved/
 Build/
+*.VC.db
+*.opensdf
+*.opendb
 
-# Visual Studio
+# ── 대용량 템플릿 콘텐츠 (빌드 불필요, UE 마켓플레이스 제공) ──
+Content/Characters/
+Content/LevelPrototyping/
+Content/Variant_Combat/
+Content/Variant_Platforming/
+Content/Variant_SideScrolling/
+Content/__ExternalActors__/
+Content/__ExternalObjects__/
+Content/Developers/
+Content/Collections/
+
+# ── Visual Studio ─────────────────────────────────────────────
 .vs/
 *.suo
 *.user
+*.sln
+.vsconfig
 
-# Compiled files
+# ── MCP 로컬 설정 ─────────────────────────────────────────────
+.mcp.json
+
+# ── Python ────────────────────────────────────────────────────
 *.pyc
 __pycache__/

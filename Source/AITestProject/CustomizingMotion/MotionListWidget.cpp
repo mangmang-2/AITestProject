@@ -301,16 +301,55 @@ void UMotionListWidget::SelectListMotion(int32 EntryIdx)
 	RefreshMotionList();
 }
 
-void UMotionListWidget::L0() { SelectListMotion(0); }
-void UMotionListWidget::L1() { SelectListMotion(1); }
-void UMotionListWidget::L2() { SelectListMotion(2); }
-void UMotionListWidget::L3() { SelectListMotion(3); }
-void UMotionListWidget::L4() { SelectListMotion(4); }
-void UMotionListWidget::L5() { SelectListMotion(5); }
-void UMotionListWidget::L6() { SelectListMotion(6); }
-void UMotionListWidget::L7() { SelectListMotion(7); }
-void UMotionListWidget::L8() { SelectListMotion(8); }
-void UMotionListWidget::L9() { SelectListMotion(9); }
+void UMotionListWidget::L0()
+{
+	SelectListMotion(0);
+}
+
+void UMotionListWidget::L1()
+{
+	SelectListMotion(1);
+}
+
+void UMotionListWidget::L2()
+{
+	SelectListMotion(2);
+}
+
+void UMotionListWidget::L3()
+{
+	SelectListMotion(3);
+}
+
+void UMotionListWidget::L4()
+{
+	SelectListMotion(4);
+}
+
+void UMotionListWidget::L5()
+{
+	SelectListMotion(5);
+}
+
+void UMotionListWidget::L6()
+{
+	SelectListMotion(6);
+}
+
+void UMotionListWidget::L7()
+{
+	SelectListMotion(7);
+}
+
+void UMotionListWidget::L8()
+{
+	SelectListMotion(8);
+}
+
+void UMotionListWidget::L9()
+{
+	SelectListMotion(9);
+}
 
 // ============================================================
 // ToggleBookmark / B0~B9  (EntryIdx → DisplayedIndices → AvIdx)
@@ -340,16 +379,55 @@ void UMotionListWidget::ToggleBookmark(int32 EntryIdx)
 	RefreshMotionList();
 }
 
-void UMotionListWidget::B0() { ToggleBookmark(0); }
-void UMotionListWidget::B1() { ToggleBookmark(1); }
-void UMotionListWidget::B2() { ToggleBookmark(2); }
-void UMotionListWidget::B3() { ToggleBookmark(3); }
-void UMotionListWidget::B4() { ToggleBookmark(4); }
-void UMotionListWidget::B5() { ToggleBookmark(5); }
-void UMotionListWidget::B6() { ToggleBookmark(6); }
-void UMotionListWidget::B7() { ToggleBookmark(7); }
-void UMotionListWidget::B8() { ToggleBookmark(8); }
-void UMotionListWidget::B9() { ToggleBookmark(9); }
+void UMotionListWidget::B0()
+{
+	ToggleBookmark(0);
+}
+
+void UMotionListWidget::B1()
+{
+	ToggleBookmark(1);
+}
+
+void UMotionListWidget::B2()
+{
+	ToggleBookmark(2);
+}
+
+void UMotionListWidget::B3()
+{
+	ToggleBookmark(3);
+}
+
+void UMotionListWidget::B4()
+{
+	ToggleBookmark(4);
+}
+
+void UMotionListWidget::B5()
+{
+	ToggleBookmark(5);
+}
+
+void UMotionListWidget::B6()
+{
+	ToggleBookmark(6);
+}
+
+void UMotionListWidget::B7()
+{
+	ToggleBookmark(7);
+}
+
+void UMotionListWidget::B8()
+{
+	ToggleBookmark(8);
+}
+
+void UMotionListWidget::B9()
+{
+	ToggleBookmark(9);
+}
 
 // ============================================================
 // 탭 / 닫기 / 적용 핸들러

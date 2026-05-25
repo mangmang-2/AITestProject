@@ -243,7 +243,7 @@ void UCustomizingMotionWidget::RefreshPresetList()
 }
 
 // ============================================================
-// RefreshSlots
+// RefreshSlots — WBP_MotionSlotWidget 인스턴스로 슬롯 행 구성
 // ============================================================
 void UCustomizingMotionWidget::RefreshSlots()
 {
@@ -251,83 +251,41 @@ void UCustomizingMotionWidget::RefreshSlots()
 	{
 		return;
 	}
+
 	SlotRowsBox->ClearChildren();
+	SlotWidgets.Reset();
 
-	const int32 MaxSlots = MotionComp->GetMaxSlotCount();
-	const TArray<FMotionSlotData>& Slots = MotionComp->GetSlots();
-
-	for (int32 i = 0; i < MaxSlots; ++i)
+	if (SlotWidgetClass == nullptr)
 	{
-		const bool bSel = (i == SelectedSlotIndex);
-		const bool bHas = Slots.IsValidIndex(i) && Slots[i].IsValid();
+		return;
+	}
 
-		// 행 배경
-		UBorder* RowBg = NewObject<UBorder>(WidgetTree);
-		RowBg->SetBrushColor(bSel ? MC::BgRowSel : MC::BgRow);
-		RowBg->SetPadding(FMargin(0.f, 0.f, 0.f, 1.f));
+	APlayerController* PC      = GetOwningPlayer();
+	const int32        MaxSlots = MotionComp->GetMaxSlotCount();
 
-		UHorizontalBox* RowHB = NewObject<UHorizontalBox>(WidgetTree);
-		RowBg->AddChild(RowHB);
-		SlotRowsBox->AddChildToVerticalBox(RowBg);
+	static const FName SlotFuncNames[] = {
+		FName(TEXT("S0")), FName(TEXT("S1")), FName(TEXT("S2")),
+		FName(TEXT("S3")), FName(TEXT("S4"))
+	};
 
-		// 번호 박스 (32px 고정)
-		UBorder* NumBg = NewObject<UBorder>(WidgetTree);
-		NumBg->SetBrushColor(bSel ? MC::BgNumSel : MC::BgNum);
-		NumBg->SetPadding(FMargin(0.f));
-
-		UTextBlock* NumTxt = NewObject<UTextBlock>(WidgetTree);
-		NumTxt->SetText(FText::FromString(FString::Printf(TEXT(" %d "), i + 1)));
-		NumTxt->SetColorAndOpacity(FSlateColor(bSel ? MC::TxtSelHl : MC::TxtMain));
-		NumTxt->SetJustification(ETextJustify::Center);
-
-		FSlateFontInfo NF = NumTxt->GetFont();
-		NF.Size = 11;
-		NumTxt->SetFont(NF);
-
-		NumBg->AddChild(NumTxt);
-
-		USizeBox* NumSz = NewObject<USizeBox>(WidgetTree);
-		NumSz->SetWidthOverride(32.f);
-		NumSz->AddChild(NumBg);
-		RowHB->AddChildToHorizontalBox(NumSz);
-
-		// 모션 이름 버튼 (fill)
-		FString SlotLabel;
-		if (bHas)
+	for (int32 i = 0; i < MaxSlots && i < 5; ++i)
+	{
+		UMotionSlotWidget* SlotW = CreateWidget<UMotionSlotWidget>(PC, SlotWidgetClass);
+		if (SlotW == nullptr)
 		{
-			SlotLabel = Slots[i].DisplayName.IsEmpty()
-				? Slots[i].ActionName
-				: Slots[i].DisplayName.ToString();
-		}
-		else
-		{
-			SlotLabel = TEXT("클릭해서 모션 설정하기");
+			continue;
 		}
 
-		UButton* NameBtn = NewObject<UButton>(WidgetTree);
-		NameBtn->SetBackgroundColor(bSel ? MC::BgRowSel : MC::BgRow);
+		SlotW->InitSlot(i, MotionComp);
+		SlotW->SetSelected(i == SelectedSlotIndex);
 
-		FButtonStyle NS = NameBtn->GetStyle();
-		NS.NormalPadding  = FMargin(8.f, 5.f);
-		NS.PressedPadding = NS.NormalPadding;
-		NameBtn->SetStyle(NS);
-
-		UTextBlock* NameTxt = NewObject<UTextBlock>(WidgetTree);
-		NameTxt->SetText(FText::FromString(SlotLabel));
-		NameTxt->SetColorAndOpacity(FSlateColor(bHas ? MC::TxtMain : MC::TxtEmpty));
-
-		FSlateFontInfo LF = NameTxt->GetFont();
-		LF.Size = 10;
-		NameTxt->SetFont(LF);
-
-		NameBtn->AddChild(NameTxt);
-
+		// OnSlotClicked → Si (S0~S4)
 		FScriptDelegate SD;
-		SD.BindUFunction(this, FName(*FString::Printf(TEXT("S%d"), i)));
-		NameBtn->OnClicked.Add(SD);
+		SD.BindUFunction(this, SlotFuncNames[i]);
+		SlotW->OnSlotClicked.Add(SD);
 
-		auto* NBS = RowHB->AddChildToHorizontalBox(NameBtn);
-		NBS->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
+		SlotWidgets.Add(SlotW);
+		SlotRowsBox->AddChildToVerticalBox(SlotW);
 	}
 }
 
@@ -354,11 +312,30 @@ void UCustomizingMotionWidget::SelectSlot(int32 Index)
 	RefreshSlots();
 }
 
-void UCustomizingMotionWidget::S0() { SelectSlot(0); }
-void UCustomizingMotionWidget::S1() { SelectSlot(1); }
-void UCustomizingMotionWidget::S2() { SelectSlot(2); }
-void UCustomizingMotionWidget::S3() { SelectSlot(3); }
-void UCustomizingMotionWidget::S4() { SelectSlot(4); }
+void UCustomizingMotionWidget::S0()
+{
+	SelectSlot(0);
+}
+
+void UCustomizingMotionWidget::S1()
+{
+	SelectSlot(1);
+}
+
+void UCustomizingMotionWidget::S2()
+{
+	SelectSlot(2);
+}
+
+void UCustomizingMotionWidget::S3()
+{
+	SelectSlot(3);
+}
+
+void UCustomizingMotionWidget::S4()
+{
+	SelectSlot(4);
+}
 
 // ============================================================
 // 프리셋 로드 (P0~P9)
@@ -372,16 +349,55 @@ void UCustomizingMotionWidget::LoadPresetAndRefresh(int32 Idx)
 	RefreshSlots();
 }
 
-void UCustomizingMotionWidget::P0() { LoadPresetAndRefresh(0); }
-void UCustomizingMotionWidget::P1() { LoadPresetAndRefresh(1); }
-void UCustomizingMotionWidget::P2() { LoadPresetAndRefresh(2); }
-void UCustomizingMotionWidget::P3() { LoadPresetAndRefresh(3); }
-void UCustomizingMotionWidget::P4() { LoadPresetAndRefresh(4); }
-void UCustomizingMotionWidget::P5() { LoadPresetAndRefresh(5); }
-void UCustomizingMotionWidget::P6() { LoadPresetAndRefresh(6); }
-void UCustomizingMotionWidget::P7() { LoadPresetAndRefresh(7); }
-void UCustomizingMotionWidget::P8() { LoadPresetAndRefresh(8); }
-void UCustomizingMotionWidget::P9() { LoadPresetAndRefresh(9); }
+void UCustomizingMotionWidget::P0()
+{
+	LoadPresetAndRefresh(0);
+}
+
+void UCustomizingMotionWidget::P1()
+{
+	LoadPresetAndRefresh(1);
+}
+
+void UCustomizingMotionWidget::P2()
+{
+	LoadPresetAndRefresh(2);
+}
+
+void UCustomizingMotionWidget::P3()
+{
+	LoadPresetAndRefresh(3);
+}
+
+void UCustomizingMotionWidget::P4()
+{
+	LoadPresetAndRefresh(4);
+}
+
+void UCustomizingMotionWidget::P5()
+{
+	LoadPresetAndRefresh(5);
+}
+
+void UCustomizingMotionWidget::P6()
+{
+	LoadPresetAndRefresh(6);
+}
+
+void UCustomizingMotionWidget::P7()
+{
+	LoadPresetAndRefresh(7);
+}
+
+void UCustomizingMotionWidget::P8()
+{
+	LoadPresetAndRefresh(8);
+}
+
+void UCustomizingMotionWidget::P9()
+{
+	LoadPresetAndRefresh(9);
+}
 
 // ============================================================
 // 버튼 핸들러
