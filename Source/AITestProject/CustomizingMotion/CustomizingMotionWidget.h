@@ -60,6 +60,14 @@ protected:
 	virtual bool Initialize()      override;
 	virtual void NativeConstruct() override;
 	virtual void NativeDestruct()  override;
+	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
+	virtual FReply NativeOnPreviewMouseButtonDown(
+		const FGeometry& InGeometry,
+		const FPointerEvent& InMouseEvent) override;
+
+	/** 드래그 핸들 높이 (논리 픽셀) — WBP 에디터에서 조정 */
+	UPROPERTY(EditAnywhere, Category = "Style")
+	float TitleBarHeight = 40.f;
 
 	// ── BP에서 할당 가능한 서브클래스 ──────────────────────────
 	UPROPERTY(EditAnywhere, Category = "CustomizingMotionUI")
@@ -77,6 +85,10 @@ protected:
 
 	UPROPERTY(meta = (BindWidget))
 	UVerticalBox* SlotRowsBox = nullptr;
+
+	/** 실제 UI 패널 루트 — 위치/크기 계산에 사용 (풀스크린 CanvasRoot 제외) */
+	UPROPERTY(meta = (BindWidgetOptional))
+	UVerticalBox* VBox_Root = nullptr;
 
 	// ── 델리게이트 ────────────────────────────────────────────
 	UPROPERTY(BlueprintAssignable, Category = "CustomizingMotionUI")
@@ -127,6 +139,11 @@ protected:
 
 	// ── 내부 상태 ─────────────────────────────────────────────
 private:
+	// 드래그 이동
+	bool      bIsDragging      = false;
+	FVector2D DragLastMousePos = FVector2D::ZeroVector;
+	FVector2D DragOffset       = FVector2D::ZeroVector;
+
 	UPROPERTY()
 	UCustomizingMotionComponent* MotionComp = nullptr;
 
@@ -170,7 +187,7 @@ private:
 	UFUNCTION() void OnCloseBtnClicked();
 
 	// ── MotionSlotWidget 델리게이트 수신 ─────────────────────
-	UFUNCTION() void OnSlotMoveRequested(int32 SlotIdx, int32 Direction);
+	UFUNCTION() void OnSlotReordered(int32 FromSlot, int32 ToSlot);
 
 	// ── MotionListWidget 델리게이트 수신 ─────────────────────
 	UFUNCTION() void OnListCloseRequested();

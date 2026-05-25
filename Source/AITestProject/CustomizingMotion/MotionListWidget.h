@@ -43,12 +43,27 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = "MotionList")
 	FOnMotionApplied OnMotionApplied;
 
+	// 창 위치 설정 (내부 ViewportPos 와 SetPositionInViewport 동기화)
+	UFUNCTION(BlueprintCallable, Category = "MotionList")
+	void SetWindowPosition(FVector2D Pos);
+
 	// ── UUserWidget 오버라이드 ─────────────────────────────────
 protected:
 	virtual void NativeConstruct() override;
 	virtual void NativeDestruct()  override;
 
+	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
+
+	// 터널 단계 (루트→리프) — 자식보다 먼저 호출 보장
+	virtual FReply NativeOnPreviewMouseButtonDown(
+		const FGeometry& InGeometry,
+		const FPointerEvent& InMouseEvent) override;
+
 	// ── WBP BindWidget ────────────────────────────────────────
+	UPROPERTY(meta = (BindWidgetOptional))
+	UBorder* Border_TitleBar = nullptr;
+
+	// ── WBP BindWidget — 원래 것들 ───────────────────────────
 	UPROPERTY(meta = (BindWidget))
 	UButton* TabCostumeBtn = nullptr;
 
@@ -80,10 +95,20 @@ protected:
 	UPROPERTY(meta = (BindWidgetOptional))
 	UTextBlock* StarFilterTxt = nullptr;
 
+	// ── Style ─────────────────────────────────────────────────
+	/** 드래그 감지 영역 높이 (논리 픽셀, 타이틀 바 높이와 맞출 것) */
+	UPROPERTY(EditAnywhere, Category = "Style")
+	float TitleBarHeight = 40.f;
+
 	// ── 내부 상태 ─────────────────────────────────────────────
 private:
 	UPROPERTY()
 	UCustomizingMotionComponent* MotionComp = nullptr;
+
+	// ── 드래그 이동 ──────────────────────────────────────────
+	bool      bIsDragging      = false;
+	FVector2D DragLastMousePos = FVector2D::ZeroVector;
+	FVector2D ViewportPos      = FVector2D::ZeroVector;  // 현재 논리 픽셀 위치
 
 	int32 TargetSlotIndex    = -1;
 	int32 PendingMotionIndex = -1;   // Av[] 실제 인덱스

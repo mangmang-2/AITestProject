@@ -33,6 +33,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "CustomizingMotion")
 	void SwapSlots(int32 IndexA, int32 IndexB);
 
+	/** From 슬롯을 To 위치로 이동 — 사이 슬롯들은 한 칸씩 밀림 */
+	UFUNCTION(BlueprintCallable, Category = "CustomizingMotion")
+	void MoveSlot(int32 From, int32 To);
+
 	UFUNCTION(BlueprintCallable, Category = "CustomizingMotion")
 	const TArray<FMotionSlotData>& GetSlots() const { return ActiveSlots; }
 

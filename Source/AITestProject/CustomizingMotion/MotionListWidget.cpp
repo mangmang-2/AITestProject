@@ -12,6 +12,9 @@
 #include "Components/SizeBox.h"
 #include "Components/EditableTextBox.h"
 #include "Blueprint/WidgetTree.h"
+#include "Blueprint/WidgetLayoutLibrary.h"
+#include "GameFramework/PlayerController.h"
+#include "Framework/Application/SlateApplication.h"
 
 // ============================================================
 // 색상 상수
@@ -33,11 +36,115 @@ namespace ML
 }
 
 // ============================================================
+// SetWindowPosition — 외부(ShowListWindow)에서 초기 위치 지정 시 사용
+// ============================================================
+void UMotionListWidget::SetWindowPosition(FVector2D Pos)
+{
+	ViewportPos = Pos;
+	SetPositionInViewport(ViewportPos, false);
+}
+
+// ============================================================
+// 타이틀 바 드래그 이동
+// ============================================================
+// NativeOnPreviewMouseButtonDown: 터널 단계(루트→리프) — 자식보다 먼저 호출됨
+// NativeOnMouseButtonDown(버블 단계)는 자식이 이벤트를 소비하면 호출 안 됨 → Preview 사용
+FReply UMotionListWidget::NativeOnPreviewMouseButtonDown(
+	const FGeometry& InGeometry,
+	const FPointerEvent& InMouseEvent)
+{
+	if (InMouseEvent.GetEffectingButton() != EKeys::LeftMouseButton)
+	{
+		return Super::NativeOnPreviewMouseButtonDown(InGeometry, InMouseEvent);
+	}
+
+	APlayerController* PC = GetOwningPlayer();
+	if (PC == nullptr)
+	{
+		return Super::NativeOnPreviewMouseButtonDown(InGeometry, InMouseEvent);
+	}
+
+	float MouseX = 0.f, MouseY = 0.f;
+	PC->GetMousePosition(MouseX, MouseY);
+
+	const float     DPIScale     = UWidgetLayoutLibrary::GetViewportScale(this);
+	const FVector2D ClickLogical = FVector2D(MouseX, MouseY) / (DPIScale > 0.f ? DPIScale : 1.f);
+
+	// 타이틀 바 Y 범위 밖이면 패스스루 (탭/스크롤/버튼 정상 동작)
+	const float RelativeY = ClickLogical.Y - ViewportPos.Y;
+	if (RelativeY < 0.f || RelativeY > TitleBarHeight)
+	{
+		return Super::NativeOnPreviewMouseButtonDown(InGeometry, InMouseEvent);
+	}
+
+	// CloseListBtn 위에 있으면 버튼 클릭을 허용 (드래그 시작 안 함)
+	if (CloseListBtn != nullptr)
+	{
+		const FGeometry& BtnGeo  = CloseListBtn->GetCachedGeometry();
+		const FVector2D  BtnSize = BtnGeo.GetLocalSize();
+		if (BtnSize.X > 0.f && BtnSize.Y > 0.f)
+		{
+			const FVector2D BtnLocal = BtnGeo.AbsoluteToLocal(InMouseEvent.GetScreenSpacePosition());
+			if (BtnLocal.X >= 0.f && BtnLocal.X <= BtnSize.X &&
+				BtnLocal.Y >= 0.f && BtnLocal.Y <= BtnSize.Y)
+			{
+				return Super::NativeOnPreviewMouseButtonDown(InGeometry, InMouseEvent);
+			}
+		}
+	}
+
+	// 타이틀 바 드래그 시작
+	bIsDragging      = true;
+	DragLastMousePos = FVector2D(MouseX, MouseY);
+	return FReply::Handled();
+}
+
+void UMotionListWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
+{
+	Super::NativeTick(MyGeometry, InDeltaTime);
+
+	if (!bIsDragging)
+	{
+		return;
+	}
+
+	APlayerController* PC = GetOwningPlayer();
+	if (PC == nullptr)
+	{
+		bIsDragging = false;
+		return;
+	}
+
+	// 마우스 버튼이 떼어졌으면 드래그 종료 (위젯 밖에서 떼는 경우 대응)
+	// FReply::Handled()로 소비된 이벤트는 UPlayerInput에 전달되지 않으므로
+	// Slate 레이어의 실제 버튼 상태를 직접 확인
+	if (!FSlateApplication::IsInitialized() ||
+		!FSlateApplication::Get().GetPressedMouseButtons().Contains(EKeys::LeftMouseButton))
+	{
+		bIsDragging = false;
+		return;
+	}
+
+	// GetMousePosition → 물리 픽셀. DPI 스케일로 나눠 논리 픽셀 델타로 변환
+	float MouseX = 0.f, MouseY = 0.f;
+	PC->GetMousePosition(MouseX, MouseY);
+
+	const FVector2D CurrentPos(MouseX, MouseY);
+	const FVector2D Delta    = CurrentPos - DragLastMousePos;
+	DragLastMousePos         = CurrentPos;
+
+	const float DPIScale = UWidgetLayoutLibrary::GetViewportScale(this);
+	ViewportPos         += (DPIScale > 0.f) ? (Delta / DPIScale) : Delta;
+	SetPositionInViewport(ViewportPos, false);
+}
+
+// ============================================================
 // NativeConstruct / NativeDestruct
 // ============================================================
 void UMotionListWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
+	SetIsFocusable(true);
 
 	if (TabCostumeBtn != nullptr)
 	{

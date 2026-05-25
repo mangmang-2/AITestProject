@@ -10,6 +10,11 @@
 #include "Components/TextBlock.h"
 #include "Components/CanvasPanel.h"
 #include "Components/CanvasPanelSlot.h"
+#include "Blueprint/WidgetLayoutLibrary.h"
+#include "GameFramework/PlayerController.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Engine/GameViewportClient.h"
+#include "Widgets/SViewport.h"
 #include "Components/Border.h"
 #include "Components/Spacer.h"
 #include "Components/SizeBox.h"
@@ -105,14 +110,87 @@ void UCustomizingMotionWidget::NativeDestruct()
 		CloseBtn->OnClicked.RemoveDynamic(this, &UCustomizingMotionWidget::OnCloseBtnClicked);
 	}
 
-	// MotionListWidget 델리게이트 해제
+	// MotionListWidget 델리게이트 해제 + 뷰포트에서 제거
 	if (MotionListWidget != nullptr)
 	{
 		MotionListWidget->OnCloseRequested.RemoveDynamic(this, &UCustomizingMotionWidget::OnListCloseRequested);
 		MotionListWidget->OnMotionApplied.RemoveDynamic(this, &UCustomizingMotionWidget::OnMotionApplied);
+		MotionListWidget->RemoveFromParent();
+		MotionListWidget = nullptr;
 	}
 
 	Super::NativeDestruct();
+}
+
+// ============================================================
+// 드래그 이동 — NativeTick
+// ============================================================
+void UCustomizingMotionWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
+{
+	Super::NativeTick(MyGeometry, InDeltaTime);
+	if (!bIsDragging) return;
+
+	APlayerController* PC = GetOwningPlayer();
+	if (!PC) { bIsDragging = false; return; }
+
+	// FReply::Handled()로 소비된 이벤트는 UPlayerInput에 전달되지 않으므로
+	// Slate 레이어의 실제 버튼 상태를 직접 확인
+	if (!FSlateApplication::IsInitialized() ||
+		!FSlateApplication::Get().GetPressedMouseButtons().Contains(EKeys::LeftMouseButton))
+	{
+		bIsDragging = false;
+		return;
+	}
+
+	float MouseX = 0.f, MouseY = 0.f;
+	PC->GetMousePosition(MouseX, MouseY);
+
+	const FVector2D CurrentPos(MouseX, MouseY);
+	const FVector2D Delta    = CurrentPos - DragLastMousePos;
+	DragLastMousePos         = CurrentPos;
+
+	const float DPIScale = UWidgetLayoutLibrary::GetViewportScale(this);
+	DragOffset          += (DPIScale > 0.f) ? (Delta / DPIScale) : Delta;
+	SetRenderTranslation(DragOffset);
+}
+
+// ============================================================
+// 드래그 시작 감지 — NativeOnPreviewMouseButtonDown (터널 단계)
+// ============================================================
+FReply UCustomizingMotionWidget::NativeOnPreviewMouseButtonDown(
+	const FGeometry& InGeometry, const FPointerEvent& InMouseEvent)
+{
+	if (InMouseEvent.GetEffectingButton() != EKeys::LeftMouseButton)
+		return Super::NativeOnPreviewMouseButtonDown(InGeometry, InMouseEvent);
+
+	APlayerController* PC = GetOwningPlayer();
+	if (!PC) return Super::NativeOnPreviewMouseButtonDown(InGeometry, InMouseEvent);
+
+	// 위젯 로컬 좌표로 변환 (embedded 위젯이므로 AbsoluteToLocal 사용)
+	const FVector2D LocalPos = InGeometry.AbsoluteToLocal(InMouseEvent.GetScreenSpacePosition());
+
+	if (LocalPos.Y < 0.f || LocalPos.Y > TitleBarHeight)
+		return Super::NativeOnPreviewMouseButtonDown(InGeometry, InMouseEvent);
+
+	// CloseBtn 위에 있으면 버튼 클릭 허용
+	if (CloseBtn != nullptr)
+	{
+		const FGeometry& BtnGeo  = CloseBtn->GetCachedGeometry();
+		const FVector2D  BtnSize = BtnGeo.GetLocalSize();
+		if (BtnSize.X > 0.f && BtnSize.Y > 0.f)
+		{
+			const FVector2D BtnLocal = BtnGeo.AbsoluteToLocal(InMouseEvent.GetScreenSpacePosition());
+			if (BtnLocal.X >= 0.f && BtnLocal.X <= BtnSize.X &&
+				BtnLocal.Y >= 0.f && BtnLocal.Y <= BtnSize.Y)
+				return Super::NativeOnPreviewMouseButtonDown(InGeometry, InMouseEvent);
+		}
+	}
+
+	bIsDragging = true;
+	float MouseX = 0.f, MouseY = 0.f;
+	PC->GetMousePosition(MouseX, MouseY);
+	DragLastMousePos = FVector2D(MouseX, MouseY);
+	return FReply::Handled();
 }
 
 void UCustomizingMotionWidget::InitWidget(UCustomizingMotionComponent* InComp)
@@ -162,20 +240,39 @@ void UCustomizingMotionWidget::ShowListWindow(bool bShow)
 
 	if (bShow)
 	{
-		const FGeometry& Geo       = GetCachedGeometry();
-		const FVector2D  AbsPos    = Geo.GetAbsolutePosition();  // 물리 픽셀
-		const FVector2D  AbsSize   = Geo.GetAbsoluteSize();      // 물리 픽셀
-		const FVector2D  LocalSize = Geo.GetLocalSize();         // 논리 픽셀 (DPI 독립)
+		// ── 게임 뷰포트의 화면상 시작점 ────────────────────────────────
+		// 에디터 PIE에서는 뷰포트가 모니터 전체가 아니므로 오프셋 보정 필요
+		// 전체화면에서는 (0,0)이므로 항상 적용해도 무방
+		FVector2D ViewportOffset = FVector2D::ZeroVector;
+		if (GEngine && GEngine->GameViewport)
+		{
+			TSharedPtr<SViewport> SViewportWidget = GEngine->GameViewport->GetGameViewportWidget();
+			if (SViewportWidget.IsValid())
+			{
+				ViewportOffset = SViewportWidget->GetCachedGeometry().GetAbsolutePosition();
+			}
+		}
 
-		// 물리→논리 변환 비율 (DPI 스케일)
-		const float Scale = (LocalSize.X > 0.f) ? (AbsSize.X / LocalSize.X) : 1.f;
+		// ── 메인 패널의 실제 논리 좌표 계산 ────────────────────────────
+		// CanvasRoot는 풀스크린이므로 실제 패널 컨테이너(VBox_Root)의 지오메트리 사용
+		const FGeometry& PanelGeo  = (VBox_Root != nullptr)
+		                             ? VBox_Root->GetCachedGeometry()
+		                             : GetCachedGeometry();
+		const FVector2D  AbsPos    = PanelGeo.GetAbsolutePosition();  // 물리 픽셀 (모니터 기준)
+		const FVector2D  AbsSize   = PanelGeo.GetAbsoluteSize();      // 물리 픽셀
+		const float      DPIScale  = UWidgetLayoutLibrary::GetViewportScale(this);
 
-		// 논리 좌표로 변환 후 메인 위젯 오른쪽 4px에 배치
-		const FVector2D LogPos(AbsPos.X / Scale, AbsPos.Y / Scale);
-		MotionListWidget->SetPositionInViewport(
-			FVector2D(500 + 4.f, LogPos.Y),
-			false);
+		// 뷰포트 기준 논리 픽셀 좌표
+		const FVector2D RelAbs    = AbsPos - ViewportOffset;
+		const FVector2D LogPos    = (DPIScale > 0.f) ? (RelAbs / DPIScale) : RelAbs;
+		const FVector2D LogSize   = (DPIScale > 0.f) ? (AbsSize / DPIScale) : AbsSize;
 
+		// SetRenderTranslation은 Slate 레이아웃 패스에서 CachedGeometry에 반영되므로
+		// DragOffset을 별도로 더하면 2배 이동됨 → LogPos 그대로 사용
+		const FVector2D ActualPos = LogPos;
+
+		// 메인 위젯 오른쪽 4px에 배치
+		MotionListWidget->SetWindowPosition(FVector2D(ActualPos.X + LogSize.X + 4.f, ActualPos.Y));
 		MotionListWidget->SetVisibility(ESlateVisibility::Visible);
 	}
 	else
@@ -279,8 +376,8 @@ void UCustomizingMotionWidget::RefreshSlots()
 		SD.BindUFunction(this, SlotFuncNames[i]);
 		SlotW->OnSlotClicked.Add(SD);
 
-		// OnMoveRequested → OnSlotMoveRequested
-		SlotW->OnMoveRequested.AddDynamic(this, &UCustomizingMotionWidget::OnSlotMoveRequested);
+		// OnSlotDropped → OnSlotReordered
+		SlotW->OnSlotDropped.AddDynamic(this, &UCustomizingMotionWidget::OnSlotReordered);
 
 		SlotWidgets.Add(SlotW);
 		SlotRowsBox->AddChildToVerticalBox(SlotW);
@@ -427,14 +524,18 @@ void UCustomizingMotionWidget::OnCirclePlayClicked()
 
 void UCustomizingMotionWidget::OnApplyBtnClicked()
 {
+	SelectedSlotIndex = -1;
+	ShowListWindow(false);
 	OnApplyRequested.Broadcast();
-	SetVisibility(ESlateVisibility::Collapsed);
+	RemoveFromParent(); // NativeDestruct에서 MotionListWidget 정리, ToggleMotionUI에서 InitWidget 재호출
 }
 
 void UCustomizingMotionWidget::OnCloseBtnClicked()
 {
+	SelectedSlotIndex = -1;
+	ShowListWindow(false);
 	OnCloseRequested.Broadcast();
-	SetVisibility(ESlateVisibility::Collapsed);
+	RemoveFromParent();
 }
 
 void UCustomizingMotionWidget::OnSavePresetBtnClicked()
@@ -448,34 +549,31 @@ void UCustomizingMotionWidget::OnSavePresetBtnClicked()
 }
 
 // ============================================================
-// MotionSlotWidget 델리게이트 수신
+// MotionSlotWidget 드래그 드롭 수신
 // ============================================================
-void UCustomizingMotionWidget::OnSlotMoveRequested(int32 SlotIdx, int32 Direction)
+void UCustomizingMotionWidget::OnSlotReordered(int32 FromSlot, int32 ToSlot)
 {
 	if (MotionComp == nullptr)
 	{
 		return;
 	}
 
-	const int32 TargetIdx = SlotIdx + Direction;
-	const int32 MaxSlots  = MotionComp->GetMaxSlotCount();
+	MotionComp->MoveSlot(FromSlot, ToSlot);
 
-	if (TargetIdx < 0 || TargetIdx >= MaxSlots)
+	// 선택된 슬롯 인덱스 보정
+	if (SelectedSlotIndex == FromSlot)
 	{
-		return;
+		SelectedSlotIndex = ToSlot;
 	}
-
-	MotionComp->SwapSlots(SlotIdx, TargetIdx);
-
-	// 선택 상태를 이동된 슬롯으로 유지
-	if (SelectedSlotIndex == SlotIdx)
+	else if (FromSlot < ToSlot && SelectedSlotIndex > FromSlot && SelectedSlotIndex <= ToSlot)
 	{
-		SelectedSlotIndex = TargetIdx;
+		SelectedSlotIndex -= 1;
 	}
-	else if (SelectedSlotIndex == TargetIdx)
+	else if (FromSlot > ToSlot && SelectedSlotIndex >= ToSlot && SelectedSlotIndex < FromSlot)
 	{
-		SelectedSlotIndex = SlotIdx;
+		SelectedSlotIndex += 1;
 	}
+	// RefreshSlots 는 OnMotionSlotsChanged → OnSlotsChanged 경로로 자동 호출됨
 }
 
 // ============================================================

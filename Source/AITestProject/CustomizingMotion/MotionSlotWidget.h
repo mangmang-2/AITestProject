@@ -8,17 +8,18 @@
 
 class UCustomizingMotionComponent;
 class UTextBlock;
-class UButton;
 class UBorder;
+class UDragDropOperation;
 
 // 슬롯 클릭 → SelectSlot 호출용
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnSlotClicked);
 
-// 슬롯 순서 이동 → CustomizingMotionWidget::OnSlotMoveRequested 호출용
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnSlotMoveRequested, int32, SlotIdx, int32, Direction);
+// 드래그 드롭 → CustomizingMotionWidget::OnSlotReordered 호출용
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnSlotDropped, int32, FromSlot, int32, ToSlot);
 
 // ──────────────────────────────────────────────────────────────
 // 모션 슬롯 행 위젯 (WBP_MotionSlotWidget 에 reparent)
+// 행 전체 클릭 → 선택  /  행 전체 드래그 → 순서 이동
 // ──────────────────────────────────────────────────────────────
 UCLASS()
 class AITESTPROJECT_API UMotionSlotWidget : public UUserWidget
@@ -33,7 +34,6 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "MotionSlot")
 	void Refresh();
 
-	/** 선택 상태 변경 후 시각 갱신 */
 	UFUNCTION(BlueprintCallable, Category = "MotionSlot")
 	void SetSelected(bool bSel);
 
@@ -42,24 +42,42 @@ public:
 	FOnSlotClicked OnSlotClicked;
 
 	UPROPERTY(BlueprintAssignable, Category = "MotionSlot")
-	FOnSlotMoveRequested OnMoveRequested;
+	FOnSlotDropped OnSlotDropped;
 
 	// ── UUserWidget 오버라이드 ─────────────────────────────────
 protected:
 	virtual void NativeConstruct() override;
 
+	virtual FReply NativeOnMouseButtonDown(
+		const FGeometry& InGeometry,
+		const FPointerEvent& InMouseEvent) override;
+
+	virtual FReply NativeOnMouseButtonUp(
+		const FGeometry& InGeometry,
+		const FPointerEvent& InMouseEvent) override;
+
+	virtual void NativeOnDragDetected(
+		const FGeometry& InGeometry,
+		const FPointerEvent& InMouseEvent,
+		UDragDropOperation*& OutOperation) override;
+
+	virtual bool NativeOnDrop(
+		const FGeometry& InGeometry,
+		const FDragDropEvent& InDragDropEvent,
+		UDragDropOperation* InOperation) override;
+
+	virtual void NativeOnDragEnter(
+		const FGeometry& InGeometry,
+		const FDragDropEvent& InDragDropEvent,
+		UDragDropOperation* InOperation) override;
+
+	virtual void NativeOnDragLeave(
+		const FDragDropEvent& InDragDropEvent,
+		UDragDropOperation* InOperation) override;
+
 	// ── WBP BindWidget ────────────────────────────────────────
 	UPROPERTY(meta = (BindWidgetOptional))
 	UBorder* Border_SlotRow = nullptr;
-
-	UPROPERTY(meta = (BindWidgetOptional))
-	UButton* MoveUpBtn = nullptr;
-
-	UPROPERTY(meta = (BindWidgetOptional))
-	UButton* MoveDownBtn = nullptr;
-
-	UPROPERTY(meta = (BindWidgetOptional))
-	UButton* SelectButton = nullptr;
 
 	UPROPERTY(meta = (BindWidgetOptional))
 	UTextBlock* SlotLabel = nullptr;
@@ -75,6 +93,13 @@ protected:
 	FLinearColor BgRowSel  = FLinearColor(0.17f, 0.14f, 0.22f, 1.00f);
 
 	UPROPERTY(EditAnywhere, Category = "Style")
+	FLinearColor BgRowHov  = FLinearColor(0.12f, 0.12f, 0.15f, 1.00f);
+
+	UPROPERTY(EditAnywhere, Category = "Style")
+	FLinearColor BgRowDrag = FLinearColor(0.22f, 0.30f, 0.42f, 1.00f);
+
+
+	UPROPERTY(EditAnywhere, Category = "Style")
 	FLinearColor TxtMain   = FLinearColor(0.85f, 0.85f, 0.88f, 1.00f);
 
 	UPROPERTY(EditAnywhere, Category = "Style")
@@ -85,13 +110,13 @@ protected:
 
 	// ── 내부 상태 ─────────────────────────────────────────────
 private:
-	int32 SlotIndex   = -1;
-	bool  bIsSelected = false;
+	int32 SlotIndex     = -1;
+	bool  bIsSelected   = false;
+	bool  bDragDetected = false;
 
 	UPROPERTY()
 	UCustomizingMotionComponent* MotionComp = nullptr;
 
-	UFUNCTION() void OnSelectButtonClicked();
-	UFUNCTION() void OnMoveUpBtnClicked();
-	UFUNCTION() void OnMoveDownBtnClicked();
+	/** Border_SlotRow 에 FSlateBrush(RoundedBox + Outline) 를 적용하는 헬퍼 */
+	void ApplyRowBrush(const FLinearColor& BgColor);
 };

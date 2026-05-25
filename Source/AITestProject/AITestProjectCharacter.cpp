@@ -165,6 +165,11 @@ void AAITestProjectCharacter::ToggleMotionUI()
 		else
 		{
 			MotionWidget->AddToViewport();
+			UCustomizingMotionWidget* TypedWidget = Cast<UCustomizingMotionWidget>(MotionWidget);
+			if (TypedWidget != nullptr)
+			{
+				TypedWidget->InitWidget(CustomizingMotionComp);
+			}
 			PC->bShowMouseCursor = true;
 			PC->SetInputMode(FInputModeGameAndUI());
 		}

@@ -70,6 +70,44 @@ void UCustomizingMotionComponent::SwapSlots(int32 IndexA, int32 IndexB)
 	OnMotionSlotsChanged.Broadcast(ActiveSlots);
 }
 
+void UCustomizingMotionComponent::MoveSlot(int32 From, int32 To)
+{
+	if (From == To)
+	{
+		return;
+	}
+	if (ActiveSlots.IsValidIndex(From) == false || ActiveSlots.IsValidIndex(To) == false)
+	{
+		return;
+	}
+
+	FMotionSlotData Temp = ActiveSlots[From];
+
+	if (From < To)
+	{
+		// From 위치 슬롯을 To로 이동 — 사이 슬롯들을 앞으로 당김
+		for (int32 i = From; i < To; ++i)
+		{
+			ActiveSlots[i]       = ActiveSlots[i + 1];
+			ActiveSlots[i].Index = i;
+		}
+	}
+	else
+	{
+		// From 위치 슬롯을 To로 이동 — 사이 슬롯들을 뒤로 밀음
+		for (int32 i = From; i > To; --i)
+		{
+			ActiveSlots[i]       = ActiveSlots[i - 1];
+			ActiveSlots[i].Index = i;
+		}
+	}
+
+	ActiveSlots[To]       = Temp;
+	ActiveSlots[To].Index = To;
+
+	OnMotionSlotsChanged.Broadcast(ActiveSlots);
+}
+
 int32 UCustomizingMotionComponent::GetValidSlotCount() const
 {
 	int32 Count = 0;
